@@ -30,6 +30,7 @@ Runs the Logic: It holds the main instructions (the "brain") of your app. It can
 In short, when you run the command python app.py in your terminal, you are starting your entire web application.
 
 <img width="643" height="314" alt="image" src="https://github.com/user-attachments/assets/624bbfb7-f269-4f97-a2fe-0b35c27e509f" />
+<img width="764" height="364" alt="image" src="https://github.com/user-attachments/assets/2b3593c8-1c29-4458-ac20-fe2cd204a113" />
 
 
 🚀 Key Features
