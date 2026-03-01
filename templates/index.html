@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCAP Analyzer - Snort Rule Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>🔍 PCAP Analyzer - Full Payload Viewer</h1>
+    
+    {% if error %}
+    <div class="error">
+        <strong>❌ Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+    
+    <form method="POST" enctype="multipart/form-data">
+        <label for="pcap_file">📁 Upload PCAP File:</label>
+        <input type="file" name="pcap_file" accept=".pcap,.pcapng" required>
+        <button type="submit">🚀 Start Analysis</button>
+    </form>
+
+    {% if stats %}
+    <div class="stats">
+        <h3>📊 Analysis Statistics</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-label">Packets with Payload:</span>
+                <span class="stat-value">{{ stats.total_packets }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Patterns Detected:</span>
+                <span class="stat-value">{{ stats.packets_with_patterns }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Rules Generated:</span>
+                <span class="stat-value">{{ stats.rules_generated }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Total Data:</span>
+                <span class="stat-value">{{ stats.total_bytes }} bytes</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rules %}
+    <div class="results">
+        <h2>📝 Generated Snort Rules ({{ rules|length }})</h2>
+        <div class="score">
+            <strong>False Positive Score:</strong> 
+            <span class="score-value {% if false_positive_score < 30 %}low{% elif false_positive_score < 60 %}medium{% else %}high{% endif %}">
+                {{ false_positive_score }}/100
+            </span>
+            <span class="score-desc">
+                {% if false_positive_score < 30 %}
+                    (Low - Reliable)
+                {% elif false_positive_score < 60 %}
+                    (Medium - Review Recommended)
+                {% else %}
+                    (High - Caution Advised)
+                {% endif %}
+            </span>
+        </div>
+        
+        <div class="rules-container">
+            {% for rule in rules %}
+            <div class="rule-item">
+                <span class="rule-number">{{ loop.index }}.</span>
+                <code class="rule-text">{{ rule }}</code>
+            </div>
+            {% endfor %}
+        </div>
+        <button onclick="copyAllRules()" class="copy-btn">📋 Copy All Rules</button>
+    </div>
+    {% endif %}
+
+    {% if payload_info %}
+    <div class="payloads">
+        <h2>📦 Payload Details (Total: {{ payload_info|length }})</h2>
+        
+        <div class="payload-controls">
+            <button onclick="expandAll()">Expand All</button>
+            <button onclick="collapseAll()">Collapse All</button>
+            <button onclick="showOnlyPatterns()">Show Only Patterned</button>
+            <button onclick="showAll()">Show All</button>
+            <button onclick="toggleHexAscii()" id="toggleViewBtn">Switch to ASCII View</button>
+        </div>
+        
+        {% for info in payload_info %}
+            {% if info.error %}
+                <div class="error">{{ info.error }}</div>
+            {% else %}
+                <div class="payload-card {% if info.has_pattern %}highlight{% endif %}" data-has-pattern="{{ info.has_pattern|lower }}">
+                    <div class="payload-header" onclick="togglePayload({{ loop.index }})">
+                        <div class="payload-title">
+                            <span class="packet-num">Packet #{{ info.packet_num }}</span>
+                            <span class="packet-size">{{ info.length }} bytes</span>
+                            {% if info.has_pattern %}
+                                <span class="badge">🔴 Pattern Detected</span>
+                            {% endif %}
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    
+                    <div id="payload-{{ loop.index }}" class="payload-content">
+                        {% if info.patterns %}
+                        <div class="patterns">
+                            <strong>🔍 Detected Patterns:</strong>
+                            {% for pattern in info.patterns %}
+                                <div class="pattern {{ 'critical' if 'LOG4J' in pattern else 'warning' }}">
+                                    {{ pattern }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Hex View Section -->
+                        <div class="payload-section hex-view">
+                            <div class="section-header">
+                                <strong>🔢 Full Hex Dump ({{ info.length }} bytes):</strong>
+                                <button onclick="copyToClipboard('{{ info.full_hex }}', 'Full Hex')" class="copy-section">Copy Full Hex</button>
+                            </div>
+                            <div class="hex-dump-container">
+                                <table class="hex-table">
+                                    {% for row in info.hex_rows %}
+                                    <tr>
+                                        <td class="hex-offset">{{ row.offset }}</td>
+                                        <td class="hex-bytes">{{ row.hex }}</td>
+                                        <td class="hex-ascii">{{ row.ascii }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- ASCII View Section -->
+                        <div class="payload-section ascii-view" style="display: none;">
+                            <div class="section-header">
+                                <strong>📋 Full ASCII Text:</strong>
+                                <button onclick="copyToClipboard(`{{ info.full_ascii }}`, 'Full ASCII')" class="copy-section">Copy Full ASCII</button>
+                            </div>
+                            <pre class="ascii-full">{{ info.full_ascii }}</pre>
+                        </div>
+                        
+                        <!-- Raw Data Section -->
+                        <div class="payload-section">
+                            <div class="section-header">
+                                <strong>📄 Raw Data Preview (first 500 chars):</strong>
+                                <button onclick="copyToClipboard(`{{ info.payload }}`, 'Raw Preview')" class="copy-section">Copy Raw</button>
+                            </div>
+                            <pre class="raw">{{ info.payload }}</pre>
+                        </div>
+                        
+                        <!-- Quick Stats -->
+                        <div class="payload-stats">
+                            <span class="stat-badge">Printable chars: {{ info.printable_percent }}%</span>
+                            <span class="stat-badge">Null bytes: {{ info.null_count }}</span>
+                            <span class="stat-badge">ASCII range: {{ info.ascii_range }}</span>
+                        </div>
+                        
+                        <div class="payload-footer">
+                            <button onclick="copyToClipboard('{{ info.full_hex }}', 'Full Hex')">Copy Hex</button>
+                            <button onclick="copyToClipboard(`{{ info.full_ascii }}`, 'Full ASCII')">Copy ASCII</button>
+                            <button onclick="copyToClipboard(`{{ info.payload }}`, 'Raw')">Copy Raw</button>
+                            <button onclick="downloadPayload({{ info.index }})">💾 Download</button>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not rules and not payload_info and not error %}
+    <div class="info-message">
+        <p>📤 Upload a PCAP file to analyze packets and generate Snort rules.</p>
+        <p>Supported formats: .pcap, .pcapng</p>
+    </div>
+    {% endif %}
+
+    <script>
+    let hexViewVisible = true;
+    
+    function togglePayload(id) {
+        const content = document.getElementById('payload-' + id);
+        const icon = event.currentTarget.querySelector('.toggle-icon');
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            icon.textContent = '▼';
+        } else {
+            content.style.display = 'none';
+            icon.textContent = '▶';
+        }
+    }
+    
+    function expandAll() {
+        document.querySelectorAll('.payload-content').forEach(el => {
+            el.style.display = 'block';
+        });
+        document.querySelectorAll('.toggle-icon').forEach(el => {
+            el.textContent = '▼';
+        });
+    }
+    
+    function collapseAll() {
+        document.querySelectorAll('.payload-content').forEach(el => {
+            el.style.display = 'none';
+        });
+        document.querySelectorAll('.toggle-icon').forEach(el => {
+            el.textContent = '▶';
+        });
+    }
+    
+    function showOnlyPatterns() {
+        document.querySelectorAll('.payload-card').forEach(card => {
+            if (card.dataset.hasPattern === 'true') {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+    
+    function showAll() {
+        document.querySelectorAll('.payload-card').forEach(card => {
+            card.style.display = 'block';
+        });
+    }
+    
+    function toggleHexAscii() {
+        const hexViews = document.querySelectorAll('.hex-view');
+        const asciiViews = document.querySelectorAll('.ascii-view');
+        const toggleBtn = document.getElementById('toggleViewBtn');
+        
+        hexViewVisible = !hexViewVisible;
+        
+        hexViews.forEach(el => {
+            el.style.display = hexViewVisible ? 'block' : 'none';
+        });
+        
+        asciiViews.forEach(el => {
+            el.style.display = hexViewVisible ? 'none' : 'block';
+        });
+        
+        toggleBtn.textContent = hexViewVisible ? 'Switch to ASCII View' : 'Switch to Hex View';
+    }
+    
+    function copyToClipboard(text, type) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert(`${type} copied to clipboard!`);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            alert('Failed to copy to clipboard');
+        });
+    }
+    
+    function copyAllRules() {
+        const rules = document.querySelectorAll('.rule-text');
+        const ruleText = Array.from(rules).map(rule => rule.textContent).join('\n');
+        copyToClipboard(ruleText, 'All rules');
+    }
+    
+    function downloadPayload(index) {
+        // This would need backend support to get full payload
+        alert('Download feature requires backend implementation');
+    }
+    
+    // Initialize all payload contents to be visible
+    window.onload = function() {
+        expandAll();
+    }
+    </script>
+</body>
+</html>
