@@ -10,6 +10,7 @@ The system analyzes uploaded PCAP files, extracts full payload data, detects sus
 This tool does not replace detection engineers, but assists in accelerating the initial rule drafting process.
 
 🚀 Key Features
+
 1️⃣ PCAP Upload & Full Payload Extraction
 
 Users upload a PCAP file via web interface:
@@ -43,6 +44,7 @@ Packets with Payload	Packets containing Raw layer
 Patterns Detected	Suspicious payload signatures identified
 Rules Generated	Deduplicated Snort draft rules
 Total Data	Total analyzed payload size
+
 3️⃣ Automated Snort Rule Generation
 
 The system extracts high-signal content patterns and generates draft rules.
