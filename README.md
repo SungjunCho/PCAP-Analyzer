@@ -11,6 +11,7 @@ The system analyzes uploaded PCAP files, extracts full payload data, detects sus
 
 This tool does not replace detection engineers, but assists in accelerating the initial rule drafting process.
 
+
 📦 What is app.py?
 app.py is the main file that runs your web application. Think of it as the engine or control tower of your project.
 
@@ -27,6 +28,8 @@ If they submit a form, it might process that information.
 Runs the Logic: It holds the main instructions (the "brain") of your app. It can calculate things, talk to a database, or use other files (like HTML templates) to build a webpage to show the user.
 
 In short, when you run the command python app.py in your terminal, you are starting your entire web application.
+
+<img width="643" height="314" alt="image" src="https://github.com/user-attachments/assets/624bbfb7-f269-4f97-a2fe-0b35c27e509f" />
 
 
 🚀 Key Features
