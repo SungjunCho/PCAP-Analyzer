@@ -1,0 +1,108 @@
+/* Add these to your style.css */
+
+.hex-dump-container {
+    background: #1e1e1e;
+    border-radius: 5px;
+    padding: 10px;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+.hex-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #d4d4d4;
+}
+
+.hex-table td {
+    padding: 2px 5px;
+    white-space: pre;
+}
+
+.hex-offset {
+    color: #569cd6;
+    font-weight: bold;
+    border-right: 1px solid #404040;
+}
+
+.hex-bytes {
+    color: #ce9178;
+    padding-left: 10px;
+    border-right: 1px solid #404040;
+}
+
+.hex-ascii {
+    color: #9cdcfe;
+    padding-left: 10px;
+}
+
+.hex-table tr:hover {
+    background: #2d2d2d;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.copy-section {
+    padding: 3px 10px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.copy-section:hover {
+    background: #0056b3;
+}
+
+.ascii-full {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.payload-stats {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.stat-badge {
+    background: #e9ecef;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 11px;
+    color: #495057;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .hex-dump-container {
+        background: #0d1117;
+    }
+    
+    .ascii-full {
+        background: #1a202c;
+        color: #e2e8f0;
+    }
+    
+    .stat-badge {
+        background: #4a5568;
+        color: #e2e8f0;
+    }
+}
