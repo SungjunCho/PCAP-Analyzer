@@ -1,6 +1,8 @@
 # PCAP-Analyzer
 PCAP Analyzer – AI-Assisted Detection Engineering Tool
 
+<img width="308" height="116" alt="image" src="https://github.com/user-attachments/assets/367475dd-f90f-49ea-a685-9c8fb1a6854a" />
+
 Overview
 
 This project presents an experimental Detection Engineering Automation Framework designed to support IPS/IDS rule drafting workflows.
