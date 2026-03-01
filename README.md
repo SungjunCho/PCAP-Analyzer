@@ -9,6 +9,24 @@ The system analyzes uploaded PCAP files, extracts full payload data, detects sus
 
 This tool does not replace detection engineers, but assists in accelerating the initial rule drafting process.
 
+📦 What is app.py?
+app.py is the main file that runs your web application. Think of it as the engine or control tower of your project.
+
+Here’s what it typically does in simple terms:
+
+Starts the Web Server: It contains the code that tells your computer to turn into a mini web server, ready to listen for visitors.
+
+Handles Requests: When someone visits your app's URL (like http://127.0.0.1:5000), app.py decides what to do. For example:
+
+If they go to the homepage (/), it might show them a welcome message.
+
+If they submit a form, it might process that information.
+
+Runs the Logic: It holds the main instructions (the "brain") of your app. It can calculate things, talk to a database, or use other files (like HTML templates) to build a webpage to show the user.
+
+In short, when you run the command python app.py in your terminal, you are starting your entire web application.
+
+
 🚀 Key Features
 
 1️⃣ PCAP Upload & Full Payload Extraction
