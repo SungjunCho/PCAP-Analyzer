@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCAP Analyzer - Multi-file Upload</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Additional styles for better display */
+        .debug-info {
+            background: #e7f3ff;
+            border: 1px solid #b8daff;
+            color: #004085;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .file-result {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .file-header {
+            background: #f8f9fa;
+            padding: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .file-content {
+            padding: 20px;
+            border-top: 1px solid #ddd;
+        }
+        .payloads-grid {
+            display: grid;
+            gap: 15px;
+        }
+        .payload-card {
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 15px;
+            background: #fafafa;
+        }
+        .payload-card.has-pattern {
+            border-left: 4px solid #dc3545;
+            background: #fff8f8;
+        }
+        .pattern-badge {
+            display: inline-block;
+            background: #dc3545;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .payload-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        .payload-data {
+            font-family: monospace;
+            font-size: 11px;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 5px 0;
+        }
+        .tab-container {
+            margin-top: 15px;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .tab-button {
+            padding: 8px 15px;
+            border: none;
+            background: #e9ecef;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .tab-button.active {
+            background: #007bff;
+            color: white;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 PCAP Analyzer - Bulk Processing</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <h3>Drop PCAP files here or click to select</h3>
+            <p>Support multiple .pcap / .pcapng files (Max 500MB total)</p>
+            <input type="file" id="fileInput" multiple accept=".pcap,.pcapng" style="display: none;">
+            <button class="select-btn" onclick="document.getElementById('fileInput').click()">Select Files</button>
+        </div>
+
+        <div id="fileList" class="file-list"></div>
+
+        <div id="progressArea" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+            </div>
+            <p id="progressText">Processing files...</p>
+        </div>
+
+        <div id="resultsArea" style="display: none;">
+            <div class="results-header">
+                <h2>Analysis Results</h2>
+                <div class="action-buttons">
+                    <button onclick="downloadAllRules()" class="btn-primary">📥 Download All Rules</button>
+                    <button onclick="downloadZip()" class="btn-secondary">📦 Download ZIP</button>
+                </div>
+            </div>
+
+            <div id="statsArea" class="stats"></div>
+
+            <div id="fileResults" class="file-results"></div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const progressArea = document.getElementById('progressArea');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const resultsArea = document.getElementById('resultsArea');
+        const statsArea = document.getElementById('statsArea');
+        const fileResults = document.getElementById('fileResults');
+
+        let selectedFiles = [];
+        let analysisResults = [];
+
+        // Drag & drop events
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(file => 
+                file.name.endsWith('.pcap') || file.name.endsWith('.pcapng')
+            );
+            
+            if (selectedFiles.length === 0) {
+                alert('Please select PCAP files (.pcap or .pcapng)');
+                return;
+            }
+
+            displayFileList();
+        }
+
+        function displayFileList() {
+            let html = '<h4>Selected Files:</h4><ul>';
+            selectedFiles.forEach(file => {
+                html += `<li>${file.name} (${(file.size / 1024).toFixed(2)} KB)</li>`;
+            });
+            html += '</ul><button onclick="uploadFiles()" class="analyze-btn">🔍 Analyze Files</button>';
+            fileList.innerHTML = html;
+        }
+
+        async function uploadFiles() {
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('pcap_files', file);
+            });
+
+            // Show progress
+            fileList.style.display = 'none';
+            progressArea.style.display = 'block';
+            resultsArea.style.display = 'none';
+            
+            // Simulate progress
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 5;
+                if (progress <= 90) {
+                    progressFill.style.width = progress + '%';
+                }
+            }, 200);
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                clearInterval(interval);
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Processing complete!';
+                
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                analysisResults = data.results || [];
+                displayResults(data);
+                
+            } catch (error) {
+                clearInterval(interval);
+                console.error('Error:', error);
+                alert('Error processing files: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    progressArea.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        function displayResults(data) {
+            resultsArea.style.display = 'block';
+            
+            // Display statistics
+            const stats = data.statistics || {
+                total_files: 0,
+                successful: 0,
+                failed: 0,
+                total_packets: 0,
+                total_rules: 0,
+                processing_time: 0
+            };
+            
+            statsArea.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.total_files}</div>
+                        <div class="stat-label">Total Files</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.successful}</div>
+                        <div class="stat-label">Successful</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.failed}</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.total_packets}</div>
+                        <div class="stat-label">Total Packets</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.total_rules}</div>
+                        <div class="stat-label">Rules Generated</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.processing_time}s</div>
+                        <div class="stat-label">Processing Time</div>
+                    </div>
+                </div>
+            `;
+
+            // Display individual file results
+            let html = '';
+            
+            if (data.results && data.results.length > 0) {
+                data.results.forEach((result, index) => {
+                    html += generateFileResultHTML(result, index);
+                });
+            } else {
+                html = '<div class="error">No results found</div>';
+            }
+            
+            fileResults.innerHTML = html;
+            
+            // Debug info
+            console.log('Total results:', data.results.length);
+            data.results.forEach((r, i) => {
+                console.log(`Result ${i}:`, r.filename, r.success);
+            });
+        }
+
+        function generateFileResultHTML(result, index) {
+            if (!result) return '';
+            
+            if (result.success) {
+                return `
+                    <div class="file-result ${result.has_patterns ? 'has-patterns' : ''}" id="file-result-${index}">
+                        <div class="file-header" onclick="toggleFile(${index})">
+                            <span class="file-name">📄 ${escapeHtml(result.filename || 'Unknown')}</span>
+                            <span class="file-badge">${result.rule_count || 0} rules</span>
+                            <span class="file-score ${getScoreClass(result.false_positive_score || 0)}">
+                                FP: ${(result.false_positive_score || 0).toFixed(2)}
+                            </span>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div id="file-${index}" class="file-content" style="display: block;">
+                            <div class="file-stats">
+                                <span>📊 Packets: ${result.packet_count || 0}</span>
+                                <span>📦 Payloads: ${result.payload_count || 0}</span>
+                                <span>📝 Rules: ${result.rule_count || 0}</span>
+                            </div>
+                            ${result.has_patterns ? `
+                                <div class="pattern-warning">
+                                    ⚠️ Attack patterns detected!
+                                </div>
+                            ` : ''}
+                            
+                            <div class="tab-container">
+                                <div class="tab-buttons">
+                                    <button class="tab-button active" onclick="switchTab(${index}, 'rules', event)">📝 Rules</button>
+                                    <button class="tab-button" onclick="switchTab(${index}, 'payloads', event)">📦 Payloads (${result.payload_info ? result.payload_info.length : 0})</button>
+                                </div>
+                                
+                                <div id="rules-${index}" class="tab-panel active">
+                                    <pre class="rules-list">${(result.rules || []).join('\n') || 'No rules generated'}</pre>
+                                </div>
+                                
+                                <div id="payloads-${index}" class="tab-panel">
+                                    ${generatePayloadsHTML(result.payload_info || [])}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="file-result error">
+                        <div class="file-header">
+                            <span class="file-name">❌ ${escapeHtml(result.filename || 'Unknown')}</span>
+                            <span class="error-message">${escapeHtml(result.error || 'Unknown error')}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function generatePayloadsHTML(payloads) {
+            if (!payloads || payloads.length === 0) {
+                return '<div class="no-data">No payload data available</div>';
+            }
+            
+            let html = '<div class="payloads-grid">';
+            
+            payloads.forEach((p, idx) => {
+                if (!p) return;
+                
+                html += `
+                    <div class="payload-card ${p.has_pattern ? 'has-pattern' : ''}">
+                        <div class="payload-meta">
+                            <span>📦 Packet #${p.packet_num || idx + 1}</span>
+                            <span>📏 ${p.length || 0} bytes</span>
+                            <span>📊 Printable: ${p.printable_percent || 0}%</span>
+                        </div>
+                        
+                        ${p.patterns && p.patterns.length > 0 ? `
+                            <div class="pattern-badges">
+                                ${p.patterns.map(pat => `<span class="pattern-badge">${escapeHtml(pat)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="payload-section">
+                            <strong>ASCII Preview:</strong>
+                            <div class="payload-data">${escapeHtml(p.full_ascii || '')}</div>
+                        </div>
+                        
+                        <div class="payload-section">
+                            <strong>Hex Preview:</strong>
+                            <div class="payload-data">${escapeHtml(p.full_hex || '')}</div>
+                        </div>
+                        
+                        <div class="payload-section">
+                            <strong>Raw Text:</strong>
+                            <div class="payload-data">${escapeHtml(p.payload || '')}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            return html;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getScoreClass(score) {
+            if (score < 30) return 'score-low';
+            if (score < 60) return 'score-medium';
+            return 'score-high';
+        }
+
+        function toggleFile(index) {
+            const content = document.getElementById(`file-${index}`);
+            const header = document.querySelector(`#file-result-${index} .file-header`);
+            const icon = header.querySelector('.toggle-icon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '▶';
+            }
+        }
+
+        function switchTab(fileIndex, tabName, event) {
+            // Prevent event bubbling
+            if (event) {
+                event.stopPropagation();
+            }
+            
+            // Hide all tabs
+            document.querySelectorAll(`#rules-${fileIndex}, #payloads-${fileIndex}`).forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Show selected tab
+            const selectedTab = document.getElementById(`${tabName}-${fileIndex}`);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+            }
+            
+            // Update tab buttons
+            const container = document.querySelector(`#file-${fileIndex} .tab-container`);
+            if (container) {
+                container.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                if (event && event.target) {
+                    event.target.classList.add('active');
+                }
+            }
+        }
+
+        async function downloadAllRules() {
+            if (!analysisResults || analysisResults.length === 0) {
+                alert('No results to download');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/download/rules', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ results: analysisResults })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Download failed');
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `snort_rules_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.rules`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Failed to download rules');
+            }
+        }
+
+        async function downloadZip() {
+            if (!analysisResults || analysisResults.length === 0) {
+                alert('No results to download');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/download/zip', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ results: analysisResults })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Download failed');
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pcap_analysis_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.zip`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                console.error('Download error:', error);
+                alert('Failed to download ZIP');
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            console.log('PCAP Analyzer loaded');
+        };
+    </script>
+</body>
+</html>
